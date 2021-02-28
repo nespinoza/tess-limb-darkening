@@ -43,7 +43,7 @@ for planet in target_list.keys():
 
         # Now check eccentricity and omega. If no data, set to 0 and 90:
         ecc, omega = planet_data['eccentricity'], planet_data['omega']
-        if (type(ecc) is not float):
+        if (type(ecc) is not float or type(omega) is not float):
             ecc = 0.
             omega = 90.
 
