@@ -13,7 +13,7 @@ import utils
 exp_time = (2./60.)/24.
 
 # Load target list. This will only load the planet name and TIC IDs:
-target_list = utils.read_data('data.dat')
+target_list = utils.read_data('additional_data.dat')
 
 # Define fitting method. If blank (""), fit GP and transit lightcurve together. 
 # If set to "fit_out", fit out-of-transit lightcurve first with a GP, then use posteriors of that fit to 

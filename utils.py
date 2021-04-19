@@ -133,7 +133,7 @@ def fit_transit_by_transit(P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMater
     oot_folders = glob.glob(outpath+'/TESS*_'+GPmodel+'_out_of_transit')
 
     for oot_folder in oot_folders:
-        print(oot_folder)
+        print('Working on',oot_folder)
         it_folder = oot_folder.split('out_of_transit')[0]+'in_transit' 
 
         # Define priors:
@@ -217,6 +217,7 @@ def fit_transit_by_transit(P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMater
         idx = np.where(np.abs(np.diff(dataset.t_lc))>0.5)[0]
         start_idx = -1
 
+        print('Detected',len(idx),'transits')
         for i in idx:
             tt, ff, fferr = {}, {}, {}
             tt['TESS'], ff['TESS'], fferr['TESS'] = dataset.t_lc[start_idx+1:i], dataset.y_lc[start_idx+1:i], dataset.yerr_lc[start_idx+1:i]
@@ -224,7 +225,7 @@ def fit_transit_by_transit(P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMater
             # Guess which t0 this dataset corresponds to:
             mid_idx = int(len(tt['TESS'])*0.5)
             tmid = tt['TESS'][mid_idx]
-            n = int(((tmid-t0)/P) + 1)
+            n = (tmid-t0)/P
             tc = t0 + n*P
 
             # Check if there is any time-datapoint that covers, at least, an hour around mid-transit:
@@ -238,6 +239,8 @@ def fit_transit_by_transit(P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMater
                 transit_dataset = juliet.load(priors=priors, t_lc = tt, y_lc = ff, \
                           yerr_lc = fferr, GP_regressors_lc = tt, out_folder = outpath+'/transit_'+str(n)+'_'+GPmodel+'_in_transit')
                 results = transit_dataset.fit(n_live_points = 500, verbose = True)
+            else:
+                print('Transit at',tc,' doesnt have n_onehour apparently:',np.abs(tt['TESS']-tc))
             start_idx = i
 
 def multisector_fit(tt, ff, fferr, P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = 'planetfit', method = '', in_transit_length = 0., good_sectors = None):
