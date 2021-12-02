@@ -3,7 +3,7 @@ import glob
 import pickle
 import juliet
 
-def fit(t, f, ferr, sector, P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = 'planetfit', method = '', in_transit_length = 0.):
+def fit(t, f, ferr, sector, P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = 'planetfit', method = '', in_transit_length = 0., fit_catwoman = False):
 
     # Scale t0 to the transit closest to the center of the TESS observations:
     n = int((np.mean(t) - t0)/P)
@@ -14,18 +14,35 @@ def fit(t, f, ferr, sector, P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMate
     priors = {}
 
     # First define parameter names, distributions and hyperparameters for GP-independant parameters:
-    params1 = ['P_p1', 't0_p1', 'r1_p1', 'r2_p1', 'q1_TESS', 'q2_TESS', \
-               'ecc_p1', 'omega_p1', 'a_p1']
-    
-    params1_instrument = ['mdilution_TESS', 'mflux_TESS', 'sigma_w_TESS']
+    if not fit_catwoman:
 
-    dists1 = ['normal', 'normal', 'uniform', 'uniform', 'uniform', 'uniform', \
-               'fixed','fixed','loguniform']
-    
-    dists1_instrument = ['fixed','normal','loguniform']
+        params1 = ['P_p1', 't0_p1', 'p_p1', 'b_p1', 'q1_TESS', 'q2_TESS', \
+                   'ecc_p1', 'omega_p1', 'a_p1']
+        
+        params1_instrument = ['mdilution_TESS', 'mflux_TESS', 'sigma_w_TESS']
 
-    hyperps1 = [[P,P_err], [t0, 0.1], [0., 1.], [0., 1.], [0., 1.], [0., 1.], \
-               ecc, omega, [1., 100.]]
+        dists1 = ['normal', 'normal', 'uniform', 'uniform', 'uniform', 'uniform', \
+                   'fixed','fixed','loguniform']
+        
+        dists1_instrument = ['fixed','normal','loguniform']
+
+        hyperps1 = [[P,P_err], [t0, 0.1], [0., 1.], [0., 2.], [0., 1.], [0., 1.], \
+                   ecc, omega, [1., 100.]]
+
+    else:
+
+        params1 = ['P_p1', 't0_p1', 'p1_p1', 'p2_p1', 'phi_p1', 'b_p1', 'q1_TESS', 'q2_TESS', \
+                   'ecc_p1', 'omega_p1', 'a_p1']
+        
+        params1_instrument = ['mdilution_TESS', 'mflux_TESS', 'sigma_w_TESS']
+
+        dists1 = ['normal', 'normal', 'uniform', 'uniform', 'fixed', 'uniform', 'uniform', 'uniform', \
+                   'fixed','fixed','loguniform']
+        
+        dists1_instrument = ['fixed','normal','loguniform']
+
+        hyperps1 = [[P,P_err], [t0, 0.1], [0., 1.], [0., 1.], 90., [0., 2.], [0., 1.], [0., 1.], \
+                   ecc, omega, [1., 100.]]
 
     hyperps1_instrument = [1., [0., 0.1], [0.1, 10000.]]
 
@@ -123,8 +140,16 @@ def fit(t, f, ferr, sector, P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMate
         tt['TESS'], ff['TESS'], fferr['TESS'] = t[idx_in], f[idx_in], ferr[idx_in]
 
         # Run fit:
-        dataset = juliet.load(priors=priors, t_lc = tt, y_lc = ff, \
-                yerr_lc = fferr, GP_regressors_lc = tt, out_folder = outpath+'_'+GPmodel+'_in_transit')
+        if not fit_catwoman:
+
+            dataset = juliet.load(priors=priors, t_lc = tt, y_lc = ff, \
+                    yerr_lc = fferr, GP_regressors_lc = tt, out_folder = outpath+'_'+GPmodel+'_in_transit_batman')
+
+        else:
+
+            dataset = juliet.load(priors=priors, t_lc = tt, y_lc = ff, \
+                    yerr_lc = fferr, GP_regressors_lc = tt, out_folder = outpath+'_'+GPmodel+'_in_transit_catwoman')
+
         results = dataset.fit(n_live_points = 500, verbose = True)
 
 def fit_transit_by_transit(P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = 'planetfit', in_transit_length = 0.):
@@ -243,7 +268,7 @@ def fit_transit_by_transit(P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMater
                 print('Transit at',tc,' doesnt have n_onehour apparently:',np.abs(tt['TESS']-tc))
             start_idx = i
 
-def multisector_fit(tt, ff, fferr, P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = 'planetfit', method = '', in_transit_length = 0., good_sectors = None):
+def multisector_fit(tt, ff, fferr, P, P_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = 'planetfit', method = '', in_transit_length = 0., good_sectors = None, fit_catwoman = False, nthreads = 4):
 
     if good_sectors is not None:
         t, f, ferr = {}, {}, {}
@@ -281,14 +306,28 @@ def multisector_fit(tt, ff, fferr, P, P_err, t0, t0_err, ecc, omega, GPmodel = '
     all_sectors = '_'.join(list(t.keys()))
 
     # First define parameter names, distributions and hyperparameters for sector-independant parameters:
-    params = ['P_p1', 't0_p1', 'p_p1', 'b_p1', 'q1_'+all_sectors, 'q2_'+all_sectors, \
-               'ecc_p1', 'omega_p1', 'a_p1', 'mdilution_'+all_sectors]
 
-    dists = ['normal', 'normal', 'uniform', 'uniform', 'uniform', 'uniform', \
-               'fixed','fixed','loguniform', 'fixed']
+    if not fit_catwoman:
 
-    hyperps = [[P,P_err], [t0, 0.1], [0., 1.], [0., 1.], [0., 1.], [0., 1.], \
-               ecc, omega, [1., 100.], 1.]
+        params = ['P_p1', 't0_p1', 'p_p1', 'b_p1', 'q1_'+all_sectors, 'q2_'+all_sectors, \
+                   'ecc_p1', 'omega_p1', 'a_p1', 'mdilution_'+all_sectors]
+
+        dists = ['normal', 'normal', 'uniform', 'uniform', 'uniform', 'uniform', \
+                   'fixed','fixed','loguniform', 'fixed']
+
+        hyperps = [[P,P_err], [t0, 0.1], [0., 1.], [0., 1.], [0., 1.], [0., 1.], \
+                   ecc, omega, [1., 100.], 1.]
+
+    else:
+
+        params = ['P_p1', 't0_p1', 'p1_p1', 'p2_p1', 'phi_p1', 'b_p1', 'q1_'+all_sectors, 'q2_'+all_sectors, \
+                   'ecc_p1', 'omega_p1', 'a_p1', 'mdilution_'+all_sectors]
+
+        dists = ['normal', 'normal', 'uniform', 'uniform', 'fixed', 'uniform', 'uniform', 'uniform', \
+                   'fixed','fixed','loguniform', 'fixed']
+
+        hyperps = [[P,P_err], [t0, 0.1], [0., 1.], [0., 1.], 90., [0., 2.], [0., 1.], [0., 1.], \
+                   ecc, omega, [1., 100.], 1.]
 
     # Now, depending on the method, iterate to check the priors for the GP, mflux and sigma_w parameters for each 
     # sector:
@@ -327,7 +366,7 @@ def multisector_fit(tt, ff, fferr, P, P_err, t0, t0_err, ecc, omega, GPmodel = '
                               yerr_lc = ferr, GP_regressors_lc = t, out_folder = outpath+'/multisector_FULL_'+GPmodel)
 
         # If more than 4 sectors are fit, free parameters are larger than 30 --- so use dynesty:
-        if len(t.keys())>4:
+        if len(t.keys())>=4:
             results = dataset.fit(sampler = 'dynamic_dynesty', bound = 'single', n_effective = 100, use_stop = False, nthreads = 4)
         else:
             results = dataset.fit(n_live_points = 1000, verbose = True)
@@ -371,13 +410,21 @@ def multisector_fit(tt, ff, fferr, P, P_err, t0, t0_err, ecc, omega, GPmodel = '
         for param, dist, hyperp in zip(params, dists, hyperps):
             priors[param] = {}
             priors[param]['distribution'], priors[param]['hyperparameters'] = dist, hyperp
+
         # Run fit:
-        dataset = juliet.load(priors=priors, t_lc = t, y_lc = f, \
-                              yerr_lc = ferr, GP_regressors_lc = t, out_folder = outpath+'/multisector_in_transit_'+GPmodel)
+        if not fit_catwoman:
+
+            dataset = juliet.load(priors=priors, t_lc = t, y_lc = f, \
+                                  yerr_lc = ferr, GP_regressors_lc = t, out_folder = outpath+'/multisector_in_transit_'+GPmodel+'_batman')
+
+        else:
+
+            dataset = juliet.load(priors=priors, t_lc = t, y_lc = f, \
+                                  yerr_lc = ferr, GP_regressors_lc = t, out_folder = outpath+'/multisector_in_transit_'+GPmodel+'_catwoman')
 
         # If more than 4 sectors are fit, free parameters are larger than 30 --- so use dynesty:
-        if len(t.keys())>4:
-            results = dataset.fit(sampler = 'dynamic_dynesty', bound = 'single', n_effective = 100, use_stop = False, nthreads = 4)
+        if len(t.keys())>=4:
+            results = dataset.fit(sampler = 'dynamic_dynesty', bound = 'single', n_effective = 100, use_stop = False, nthreads = nthreads)
         else:
             results = dataset.fit(n_live_points = 1000, verbose = True)
 

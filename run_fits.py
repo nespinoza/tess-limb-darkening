@@ -24,6 +24,12 @@ factor = 5.
 # Run multi-sector fit? This will run a global joint fit of all sectors:
 run_multisector = True
 
+# Do we want to run catwoman fits?
+fit_catwoman = True
+
+# Number of threads for multi-sector fits:
+nthreads = 4
+
 # Iterate through all planets:
 for planet in target_list.keys():
 
@@ -91,24 +97,50 @@ for planet in target_list.keys():
 
             # If initial SNR estimate is larger than 5-sigma, perform the fit:
             if tdepth/sigma_depth > 5:
+
                 print('\t >> Performing fit for '+sector+'; expected depth precision FOR ALL SECTORS: ',sigma_depth*1e6,' giving SNR:', tdepth/sigma_depth)
+
                 if not os.path.exists(planet):
                     os.mkdir(planet)
+
                 full_path = planet+'/'+sector
+
                 utils.fit(t[sector], f[sector], ferr[sector], sector, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = full_path, \
                           method = method, in_transit_length = factor*tdur)
                 utils.fit(t[sector], f[sector], ferr[sector], sector, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'QP', outpath = full_path, \
                           method = method, in_transit_length = factor*tdur)
+
+                if fit_catwoman:
+
+                    utils.fit(t[sector], f[sector], ferr[sector], sector, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = full_path, \
+                              method = method, in_transit_length = factor*tdur, fit_catwoman = fit_catwoman)
+                    utils.fit(t[sector], f[sector], ferr[sector], sector, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'QP', outpath = full_path, \
+                              method = method, in_transit_length = factor*tdur, fit_catwoman = fit_catwoman)
+
                 good_sectors.append(sector)
 
             else:
                 print('\t WARNING: ',sector, ' DOES NOT look good! Not doing the fit. Expected depth precision: ',sigma_depth*1e6,' giving SNR:', tdepth/sigma_depth)
 
         print('run_multisector:',run_multisector,' | Good sectors:', len(good_sectors))
+
         if run_multisector and len(good_sectors)>1:
+
             print('Running multisector fit for ExpMatern:')
             utils.multisector_fit(t, f, ferr, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = planet, good_sectors = good_sectors, method = method, \
-                                 in_transit_length = factor*tdur)
+                                 in_transit_length = factor*tdur, nthreads = nthreads)
+
             print('Running multisector fit for QP:')
             utils.multisector_fit(t, f, ferr, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'QP', outpath = planet, good_sectors = good_sectors, method = method, \
-                                 in_transit_length = factor*tdur)
+                                 in_transit_length = factor*tdur, nthreads = nthreads)
+            if fit_catwoman:
+
+                print('Repeating fits for catwoman model:')
+
+                print('Running multisector fit for ExpMatern for catwoman:')
+                utils.multisector_fit(t, f, ferr, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'ExpMatern', outpath = planet, good_sectors = good_sectors, method = method, \
+                                     in_transit_length = factor*tdur, fit_catwoman = fit_catwoman, nthreads = nthreads)
+
+                print('Running multisector fit for QP for catwoman:')
+                utils.multisector_fit(t, f, ferr, period, period_err, t0, t0_err, ecc, omega, GPmodel = 'QP', outpath = planet, good_sectors = good_sectors, method = method, \
+                                     in_transit_length = factor*tdur, fit_catwoman = fit_catwoman, nthreads = nthreads)
